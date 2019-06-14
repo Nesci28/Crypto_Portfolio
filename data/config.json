@@ -1,0 +1,60 @@
+{
+  "config": {
+    "RVN": {
+      "id": "ravencoin",
+      "api": "https://ravencoin.network/api/addr/",
+      "key": "",
+      "path": "balance",
+      "suprnova": {
+        "api": "https://rvn.suprnova.cc/index.php?page=api&action=getuserbalance&api_key=",
+        "path": "getuserbalance.data"
+      }
+    },
+    "BTC": {
+      "id": "bitcoin",
+      "api": "https://chain.so/api/v2/get_address_balance/BTC/",
+      "key": "",
+      "path": "data.confirmed_balance",
+      "value": {
+        "api": "https://api.coindesk.com/v1/bpi/currentprice.json",
+        "path": "bpi.USD.rate"
+      }
+    },
+    "ETH": {
+      "id": "ethereum",
+      "api": "http://api.ethplorer.io/getAddressInfo/",
+      "key": ["apiKey", "freekey"],
+      "path": "ETH.balance",
+      "nanopool": {
+        "api": "https://api.nanopool.org/v1/eth/balance/",
+        "path": "data"
+      }
+    },
+    "XMR": {
+      "id": "monero",
+      "api": "",
+      "key": "",
+      "path": "",
+      "nanopool": {
+        "api": "https://api.nanopool.org/v1/xmr/balance/",
+        "path": "data"
+      }
+    },
+    "PHL": {
+      "id": "placeh",
+      "api": "",
+      "key": "",
+      "path": "",
+      "scrap": "http://explore.placeh.io:8080/address/",
+      "scrap_fields": "body > div.col-xs-12.col-md-10.col-md-offset-1 > div.panel.panel-default.panel-address-summary > table > tbody > tr > td"
+    },
+    "SIN": {
+      "id": "suqa",
+      "api": "",
+      "key": "",
+      "path": "",
+      "scrap": "http://explorer.sinovate.io/address/",
+      "scrap_fields": "body > div.col-md-12 > div > div.col-xs-12.col-md-10.col-md-offset-1 > div.panel.panel-default.panel-address-summary > table > tbody > tr > td:nth-child(3)"
+    }
+  }
+}
