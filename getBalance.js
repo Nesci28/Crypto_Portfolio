@@ -7,7 +7,7 @@ const puppeteer = require("puppeteer");
 // Configs
 let config = JSON.parse(fs.readFileSync("./data/config.json").toString());
 config = config.config;
-let wallets = JSON.parse(fs.readFileSync("config.json").toString());
+let wallets = JSON.parse(fs.readFileSync(process.argv[2]).toString());
 walletsWithOptions = wallets;
 wallets = wallets.wallets;
 
@@ -36,9 +36,14 @@ async function main() {
   await getBitcoinValue();
   await getBalance(wallets);
   calc();
-  await checkForEmail();
   console.log(balance);
-  console.log(emailSent);
+  if (
+    walletsWithOptions.email.length > 0 &&
+    walletsWithOptions.sendgrid_apiKey.length > 0
+  ) {
+    await checkForEmail();
+    console.log(emailSent);
+  }
   setTimeout(async () => {
     await main();
   }, 60 * 1000);
@@ -48,13 +53,6 @@ setEmailObject();
 main();
 
 // Functions
-function setEmailObject() {
-  const keys = getTickers();
-  keys.forEach(key => {
-    emailSent[key] = { high: 0, low: 0 };
-  });
-}
-
 async function checkForEmail() {
   const keys = getTickers();
   const msg = [];
@@ -171,30 +169,6 @@ function calc() {
         }
       });
     }
-  });
-}
-
-function generateBalance(wallets) {
-  wallets.forEach(wallet => {
-    balance["Bitcoin"] = 0;
-    balance["Portfolio_value_in_usd"] = 0;
-    balance["Portfolio_value_in_btc"] = 0;
-    balance[wallet.ticker] = {};
-    balance[wallet.ticker]["total_balance"] = 0;
-    balance[wallet.ticker]["total_value_in_usd"] = 0;
-    balance[wallet.ticker]["total_value_in_btc"] = 0;
-    balance[wallet.ticker]["value_in_btc"] = 0;
-    balance[wallet.ticker]["notification_value"] = {};
-    balance[wallet.ticker]["notification_value"]["high"] =
-      parseFloat(wallet["notification_value"]["high"]) || 0;
-    balance[wallet.ticker]["notification_value"]["low"] =
-      parseFloat(wallet["notification_value"]["low"]) || 0;
-    balance[wallet.ticker]["wallet"] = {};
-    balance[wallet.ticker]["wallet"]["balance"] = 0;
-    balance[wallet.ticker]["nanopool"] = {};
-    balance[wallet.ticker]["nanopool"]["balance"] = 0;
-    balance[wallet.ticker]["suprnova"] = {};
-    balance[wallet.ticker]["suprnova"]["balance"] = 0;
   });
 }
 
@@ -327,6 +301,39 @@ async function getFromExplorer(
 }
 
 // Utilities
+// Setting up the balance object
+function generateBalance(wallets) {
+  wallets.forEach(wallet => {
+    balance["Bitcoin"] = 0;
+    balance["Portfolio_value_in_usd"] = 0;
+    balance["Portfolio_value_in_btc"] = 0;
+    balance[wallet.ticker] = {};
+    balance[wallet.ticker]["total_balance"] = 0;
+    balance[wallet.ticker]["total_value_in_usd"] = 0;
+    balance[wallet.ticker]["total_value_in_btc"] = 0;
+    balance[wallet.ticker]["value_in_btc"] = 0;
+    balance[wallet.ticker]["notification_value"] = {};
+    balance[wallet.ticker]["notification_value"]["high"] =
+      parseFloat(wallet["notification_value"]["high"]) || 0;
+    balance[wallet.ticker]["notification_value"]["low"] =
+      parseFloat(wallet["notification_value"]["low"]) || 0;
+    balance[wallet.ticker]["wallet"] = {};
+    balance[wallet.ticker]["wallet"]["balance"] = 0;
+    balance[wallet.ticker]["nanopool"] = {};
+    balance[wallet.ticker]["nanopool"]["balance"] = 0;
+    balance[wallet.ticker]["suprnova"] = {};
+    balance[wallet.ticker]["suprnova"]["balance"] = 0;
+  });
+}
+
+// Setting up the emailSent object
+function setEmailObject() {
+  const keys = getTickers();
+  keys.forEach(key => {
+    emailSent[key] = { high: 0, low: 0 };
+  });
+}
+
 // Get all the configured tickers
 function getTickers() {
   const keys = [];
