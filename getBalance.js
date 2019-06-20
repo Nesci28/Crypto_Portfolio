@@ -1,8 +1,15 @@
 const axios = require("axios");
 const fs = require("fs");
+const puppeteer = require("puppeteer");
 const CoinGecko = require("coingecko-api");
 const sgMail = require("@sendgrid/mail");
-const puppeteer = require("puppeteer");
+const monk = require("monk");
+require("dotenv").config();
+
+const db = monk(
+  `${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@${process.env.DB_URL}`
+);
+const collection = db.get(`${process.env.DB_COLLECTION}`);
 
 // Configs
 let config = JSON.parse(fs.readFileSync("./data/config.json").toString());
@@ -27,8 +34,10 @@ sgMail.setApiKey(walletsWithOptions.sendgrid_apiKey);
 // getID();
 
 // Global initialisation
+let logTime = new Date();
 const balance = {};
 const emailSent = {};
+const money = {};
 
 // Main
 async function main() {
@@ -44,15 +53,62 @@ async function main() {
     await checkForEmail();
     console.log(emailSent);
   }
+  await insertInDB();
+  if (
+    Math.abs(new Date().getTime() - logTime.getTime()) >
+    1000 * 60 * 60 * 24
+  ) {
+    logTime = new Date();
+    await showMeTheMoney();
+  }
   setTimeout(async () => {
     await main();
-  }, 60 * 1000);
+  }, 60 * 60 * 1000);
 }
 
 setEmailObject();
+setMoneyObject();
 main();
 
 // Functions
+async function showMeTheMoney() {
+  let size = await collection.aggregate({
+    $project: { count: { $size: "$balance" } }
+  });
+  if (size[0].count > 0) {
+    const lastElements = await collection.aggregate([
+      {
+        $project: {
+          last: { $arrayElemAt: ["$balance", -1] },
+          secondToLast: { $arrayElemAt: ["$balance", -2] }
+        }
+      }
+    ]);
+    const keys = getTickers();
+    keys.forEach(key => {
+      let currentBalance = lastElements[0].secondToLast[key].total_value_in_btc;
+      let lastBalance = lastElements[0].secondToLast[key].total_value_in_btc;
+      money[key].BTC = currentBalance - lastBalance;
+      const BTCValue = lastElements[0].last.Bitcoin;
+      money[key].USD = money[key].BTC * BTCValue;
+    });
+    console.log(money);
+    collection.update(
+      { _id: 1 },
+      { $push: { mining_history: money } },
+      { upsert: true }
+    );
+  }
+}
+
+async function insertInDB() {
+  await collection.update(
+    { _id: 1 },
+    { $push: { balance: balance } },
+    { upsert: true }
+  );
+}
+
 async function checkForEmail() {
   const keys = getTickers();
   const msg = [];
@@ -301,6 +357,14 @@ async function getFromExplorer(
 }
 
 // Utilities
+// Setting up the money object
+function setMoneyObject() {
+  const keys = getTickers();
+  keys.forEach(key => {
+    money[key] = { BTC: 0, USD: 0 };
+  });
+}
+
 // Setting up the balance object
 function generateBalance(wallets) {
   wallets.forEach(wallet => {
