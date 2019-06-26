@@ -10,6 +10,7 @@ const db = monk(
   `${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@${process.env.DB_URL}`
 );
 const collection = db.get(`${process.env.DB_COLLECTION}`);
+const miningCollection = db.get(`${process.env.DB_COLLECTION2}`);
 
 // Configs
 let config = JSON.parse(fs.readFileSync("./data/config.json").toString());
@@ -34,14 +35,44 @@ sgMail.setApiKey(walletsWithOptions.sendgrid_apiKey);
 // getID();
 
 // Global initialisation
-let logTime = new Date();
 const balance = {};
 const emailSent = {};
 const money = {};
+let showTheMoney = false;
+let counter = 1;
+let lastCalculation;
 
 // Main
-async function main() {
-  generateBalance(wallets);
+async function main(step) {
+  if (step == "start") {
+    let size = await collection.aggregate({
+      $project: { count: { $size: "$balance" } }
+    });
+    if (size.length == 0) {
+      lastCalculation = Date.now();
+    }
+  }
+
+  if (step == "db" || (step == "start" && lastCalculation == undefined)) {
+    const lastElement = await collection.aggregate([
+      {
+        $project: {
+          last: { $arrayElemAt: ["$balance", -1] }
+        }
+      }
+    ]);
+    if (
+      Date.now() - lastElement[0].last.Last_calculation <
+      1000 * 60 * 60 * 24
+    ) {
+      lastCalculation = lastElement[0].last.Last_calculation;
+    } else {
+      showTheMoney = true;
+      lastCalculation = Date.now();
+    }
+  }
+
+  generateBalance(wallets, lastCalculation);
   await getBitcoinValue();
   await getBalance(wallets);
   calc();
@@ -53,22 +84,29 @@ async function main() {
     await checkForEmail();
     console.log(emailSent);
   }
-  await insertInDB();
-  if (
-    Math.abs(new Date().getTime() - logTime.getTime()) >
-    1000 * 60 * 60 * 24
-  ) {
-    logTime = new Date();
-    await showMeTheMoney();
+
+  if (step == "db" || step == "start") {
+    await insertInDB();
+    if (showTheMoney == true) {
+      await showMeTheMoney();
+      showTheMoney = false;
+    }
   }
+
   setTimeout(async () => {
-    await main();
-  }, 60 * 60 * 1000);
+    if (counter == 60) {
+      counter = 1;
+      await main("db");
+    } else {
+      counter = counter + 1;
+      await main("");
+    }
+  }, 1000 * 60);
 }
 
 setEmailObject();
 setMoneyObject();
-main();
+main("start");
 
 // Functions
 async function showMeTheMoney() {
@@ -76,28 +114,44 @@ async function showMeTheMoney() {
     $project: { count: { $size: "$balance" } }
   });
   if (size[0].count > 0) {
-    const lastElements = await collection.aggregate([
-      {
-        $project: {
-          last: { $arrayElemAt: ["$balance", -1] },
-          secondToLast: { $arrayElemAt: ["$balance", -2] }
+    for (let i = 1; i < size[0].count; i++) {
+      var lastElements = await collection.aggregate([
+        {
+          $project: {
+            last: { $arrayElemAt: ["$balance", -1] },
+            secondToLast: { $arrayElemAt: ["$balance", (i + 1) * -1] }
+          }
         }
+      ]);
+      if (
+        Date.now() - lastElements[0].secondToLast.Time >= 1000 * 60 * 60 * 24 &&
+        Date.now() - lastElements[0].secondToLast.Time < 1000 * 60 * 60 * 25
+      ) {
+        break;
+      } else {
+        lastElements = "";
       }
-    ]);
-    const keys = getTickers();
-    keys.forEach(key => {
-      let currentBalance = lastElements[0].secondToLast[key].total_value_in_btc;
-      let lastBalance = lastElements[0].secondToLast[key].total_value_in_btc;
-      money[key].BTC = currentBalance - lastBalance;
-      const BTCValue = lastElements[0].last.Bitcoin;
-      money[key].USD = money[key].BTC * BTCValue;
-    });
-    console.log(money);
-    collection.update(
-      { _id: 1 },
-      { $push: { mining_history: money } },
-      { upsert: true }
-    );
+    }
+    if (lastElements !== "") {
+      const keys = getTickers();
+      keys.forEach(key => {
+        const offset = walletsWithOptions["timezone_offset_in_minutes"];
+        const newTime = new Date(dt.getTime() + offset * 60 * 1000);
+        money["Time"] = newTime;
+        let currentBalance = lastElements[0].last[key].total_balance;
+        let lastBalance = lastElements[0].secondToLast[key].total_balance;
+        const SatsValue = lastElements[0].last[key].value_in_btc;
+        money[key][key] = currentBalance - lastBalance;
+        money[key].BTC = (currentBalance - lastBalance) * SatsValue;
+        const BTCValue = lastElements[0].last.Bitcoin;
+        money[key].USD = money[key].BTC * BTCValue;
+      });
+      miningCollection.update(
+        { _id: 1 },
+        { $push: { mining_history: money } },
+        { upsert: true }
+      );
+    }
   }
 }
 
@@ -170,12 +224,17 @@ async function sendEmails(msg) {
 }
 
 async function getBitcoinValue() {
-  let value = await axios.get(config.BTC.value.api);
-  value = value.data;
-  let path = config.BTC.value.path;
-  value = getPath(path, value);
-  value = value.replace(",", "");
-  balance["Bitcoin"] = parseFloat(value);
+  let value;
+  try {
+    value = await axios.get(config.BTC.value.api);
+    value = value.data;
+    let path = config.BTC.value.path;
+    value = getPath(path, value);
+    value = value.replace(",", "");
+    balance["Bitcoin"] = parseFloat(value);
+  } catch {
+    value = 0;
+  }
 }
 
 function calc() {
@@ -291,11 +350,14 @@ async function getFromSuprnova(ticker, apiKey, walletBalance = "") {
       let path = config[ticker].suprnova.path;
 
       if (api && path) {
-        walletBalance = await axios.get(api, {
-          params: {
-            api_key: apiKey
-          }
-        });
+        let walletBalance;
+        try {
+          walletBalance = await axios.get(api, {
+            params: {
+              api_key: apiKey
+            }
+          });
+        } catch {}
         walletBalance = walletBalance.data;
         path = path.split(".");
         path.forEach(el => {
@@ -317,7 +379,9 @@ async function getFromNanopool(ticker, address, walletBalance = "") {
       const path = config[ticker].nanopool.path;
 
       if (api && path) {
-        walletBalance = await axios.get(api + address);
+        try {
+          walletBalance = await axios.get(api + address);
+        } catch {}
         walletBalance = walletBalance.data;
         walletBalance = walletBalance[path];
         walletBalance = parseFloat(walletBalance);
@@ -336,13 +400,17 @@ async function getFromExplorer(
   walletBalance = ""
 ) {
   if (api.length > 0 && apiKey.length == 0) {
-    walletBalance = await axios.get(api + address);
+    try {
+      walletBalance = await axios.get(api + address);
+    } catch {}
   } else if (api.length > 0 && apiKey.length > 0) {
-    walletBalance = await axios.get(api + address, {
-      params: {
-        apiKey: apiKey[1]
-      }
-    });
+    try {
+      walletBalance = await axios.get(api + address, {
+        params: {
+          apiKey: apiKey[1]
+        }
+      });
+    } catch {}
   }
   if (walletBalance) {
     walletBalance = walletBalance.data;
@@ -361,13 +429,15 @@ async function getFromExplorer(
 function setMoneyObject() {
   const keys = getTickers();
   keys.forEach(key => {
-    money[key] = { BTC: 0, USD: 0 };
+    money[key] = { [key]: 0, BTC: 0, USD: 0 };
   });
 }
 
 // Setting up the balance object
-function generateBalance(wallets) {
+function generateBalance(wallets, last_calculation) {
   wallets.forEach(wallet => {
+    balance["Time"] = Date.now();
+    balance["Last_calculation"] = last_calculation;
     balance["Bitcoin"] = 0;
     balance["Portfolio_value_in_usd"] = 0;
     balance["Portfolio_value_in_btc"] = 0;
