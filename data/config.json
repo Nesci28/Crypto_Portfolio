@@ -54,7 +54,7 @@
       "key": "",
       "path": "",
       "scrap": "http://explorer.sinovate.io/address/",
-      "scrap_fields": "body > div.col-md-12 > div > div.col-xs-12.col-md-10.col-md-offset-1 > div.panel.panel-default.panel-address-summary > table > tbody > tr > td:nth-child(3)"
+      "scrap_fields": "body > div:nth-child(3) > div > div > div.col-xs-12.col-md-10.col-md-offset-1 > div.panel.panel-default.panel-address-summary > table > tbody > tr > td:nth-child(3)"
     }
   }
 }

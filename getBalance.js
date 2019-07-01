@@ -42,6 +42,11 @@ let showTheMoney = false;
 let counter = 1;
 let lastCalculation;
 
+// Error handling
+process.on("uncaughtException", function(err) {
+  console.log(err);
+});
+
 // Main
 async function main(step) {
   if (step == "start") {
@@ -71,7 +76,6 @@ async function main(step) {
       lastCalculation = Date.now();
     }
   }
-
   generateBalance(wallets, lastCalculation);
   await getBitcoinValue();
   await getBalance(wallets);
@@ -134,17 +138,20 @@ async function showMeTheMoney() {
     }
     if (lastElements !== "") {
       const keys = getTickers();
+      const offset = walletsWithOptions["timezone_offset_in_minutes"];
+      let newTime = new Date();
+      newTime = new Date(newTime.getTime() + offset * 60 * 1000);
+      money["Time"] = newTime;
       keys.forEach(key => {
-        const offset = walletsWithOptions["timezone_offset_in_minutes"];
-        const newTime = new Date(dt.getTime() + offset * 60 * 1000);
-        money["Time"] = newTime;
         let currentBalance = lastElements[0].last[key].total_balance;
         let lastBalance = lastElements[0].secondToLast[key].total_balance;
         const SatsValue = lastElements[0].last[key].value_in_btc;
-        money[key][key] = currentBalance - lastBalance;
-        money[key].BTC = (currentBalance - lastBalance) * SatsValue;
-        const BTCValue = lastElements[0].last.Bitcoin;
-        money[key].USD = money[key].BTC * BTCValue;
+        if (currentBalance - lastBalance !== 0) {
+          money[key][key] = currentBalance - lastBalance;
+          money[key].BTC = (currentBalance - lastBalance) * SatsValue;
+          const BTCValue = lastElements[0].last.Bitcoin;
+          money[key].USD = money[key].BTC * BTCValue;
+        }
       });
       miningCollection.update(
         { _id: 1 },
@@ -330,11 +337,17 @@ async function getBalance(wallets) {
 async function getFromScrapping(address, ticker, site, fields) {
   const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
-  await page.goto(site + address);
+  await page.setUserAgent(
+    "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322)"
+  );
+  await page.goto(site + address, { waitUntil: "load", timeout: 0 });
   const total = await page.evaluate(fields => {
+    console.log(document.querySelector(fields).innerHTML);
     return document.querySelector(fields).innerHTML;
   }, fields);
   balance[ticker]["wallet"]["balance"] = parseFloat(total);
+  console.log("i am closing the headless browser");
+  await browser.close();
 }
 
 async function getCoinValue(ticker, id) {
