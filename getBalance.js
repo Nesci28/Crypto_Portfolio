@@ -335,19 +335,21 @@ async function getBalance(wallets) {
 }
 
 async function getFromScrapping(address, ticker, site, fields) {
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
-  await page.setUserAgent(
-    "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322)"
-  );
-  await page.goto(site + address, { waitUntil: "load", timeout: 0 });
-  const total = await page.evaluate(fields => {
-    console.log(document.querySelector(fields).innerHTML);
-    return document.querySelector(fields).innerHTML;
-  }, fields);
-  balance[ticker]["wallet"]["balance"] = parseFloat(total);
-  console.log("i am closing the headless browser");
-  await browser.close();
+  try {
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.setUserAgent(
+      "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322)"
+    );
+    await page.goto(site + address, { waitUntil: "load", timeout: 0 });
+    const total = await page.evaluate(fields => {
+      return document.querySelector(fields).innerHTML;
+    }, fields);
+    balance[ticker]["wallet"]["balance"] = parseFloat(total);
+    await browser.close();
+  } catch {
+    balance[ticker]["wallet"]["balance"] = parseFloat(0);
+  }
 }
 
 async function getCoinValue(ticker, id) {
