@@ -22,6 +22,8 @@ Both need to be configured to receive emails.
 
 ticker: The 3 characters symbol of the coin (in uppercase)  
 address: Your wallet address [value or blank]
+manualBalance: If you want to add a balance manually [value]
+checkOnExplorer: Check the balance of the wallet on the explorer [true or false]
 nanopool: If you are mining on nanopool and want to include the amount currently on it [true or false]  
 suprnova:
 
@@ -40,13 +42,15 @@ notification_value:
     {
       "ticker": "RVN",
       "address": "RJRibeRyGhGFdWmB9V5UevQ5d3iYyABVTA",
+      "manualBalance": 0,
+      "checkOnExplorer": true,
       "nanopool": false,
       "suprnova": {
         "apiKey": "972fd45d659a48b15453c673701b23ab3c9f2095b37d925d9cc3aba8a5cb7a06"
       },
       "notification_value": {
         "high": "0.00000850",
-        "low": "0.00000600"
+        "low": "0.00000450"
       }
     }
   ]
@@ -72,4 +76,4 @@ notification_value:
 - [ ] Connect to exchanges and buy/sell on threshold
 
 - [ ] Add machine learning ???
-- Auotmatically buy/sell when time comes
+- Automatically buy/sell when time comes

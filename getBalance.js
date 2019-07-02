@@ -251,7 +251,8 @@ function calc() {
     let total =
       section["wallet"]["balance"] +
       section["nanopool"]["balance"] +
-      section["suprnova"]["balance"];
+      section["suprnova"]["balance"] +
+      section["explorer"]["balance"];
     section["total_balance"] = total;
     section["total_value_in_btc"] = total * section["value_in_btc"];
     balance["Portfolio_value_in_btc"] =
@@ -301,6 +302,8 @@ async function getBalance(wallets) {
     const address = wallet.address;
     const nanopool = wallet.nanopool;
     const suprnova = wallet.suprnova.apiKey;
+    const checkOnExplorer = wallet.checkOnExplorer;
+    const manualBalance = wallet.manualBalance;
 
     const api = config[ticker].api;
     const apiKey = config[ticker].key;
@@ -313,12 +316,12 @@ async function getBalance(wallets) {
 
     await getCoinValue(ticker, id);
 
-    if (api !== undefined) {
+    if (api !== undefined && checkOnExplorer) {
       if (api.length > 0) {
         await getFromExplorer(ticker, api, apiKey, address, path);
       }
     }
-    if (scrap !== undefined) {
+    if (scrap !== undefined && checkOnExplorer) {
       if (scrap.length > 0) {
         await getFromScrapping(address, ticker, scrap, scrapFields);
       }
@@ -330,6 +333,11 @@ async function getBalance(wallets) {
       if (suprnova.length > 0) {
         await getFromSuprnova(ticker, suprnova);
       }
+    }
+    if (manualBalance !== undefined) {
+      balance[ticker]["wallet"]["balance"] = parseFloat(
+        manualBalance.toFixed(8)
+      );
     }
   }
 }
@@ -345,17 +353,21 @@ async function getFromScrapping(address, ticker, site, fields) {
     const total = await page.evaluate(fields => {
       return document.querySelector(fields).innerHTML;
     }, fields);
-    balance[ticker]["wallet"]["balance"] = parseFloat(total);
+    balance[ticker]["explorer"]["balance"] = parseFloat(total);
     await browser.close();
   } catch {
-    balance[ticker]["wallet"]["balance"] = parseFloat(0);
+    balance[ticker]["explorer"]["balance"] = parseFloat(0);
   }
 }
 
 async function getCoinValue(ticker, id) {
-  let data = await CoinGeckoClient.coins.fetch(id, {});
-  data = data.data;
-  balance[ticker]["value_in_btc"] = data.market_data.current_price.btc;
+  try {
+    let data = await CoinGeckoClient.coins.fetch(id, {});
+    data = data.data;
+    balance[ticker]["value_in_btc"] = data.market_data.current_price.btc;
+  } catch {
+    balance[ticker]["value_in_btc"] = 0;
+  }
 }
 
 async function getFromSuprnova(ticker, apiKey, walletBalance = "") {
@@ -435,11 +447,31 @@ async function getFromExplorer(
       walletBalance = walletBalance[path];
     }
     walletBalance = parseFloat(walletBalance);
-    balance[ticker]["wallet"]["balance"] = walletBalance;
+    balance[ticker]["explorer"]["balance"] = walletBalance;
   }
 }
 
 // Utilities
+// Converting milliseconds to hours/minutes/seconds
+function parseMillisecondsIntoReadableTime(milliseconds) {
+  //Get hours from milliseconds
+  var hours = milliseconds / (1000 * 60 * 60);
+  var absoluteHours = Math.floor(hours);
+  var h = absoluteHours > 9 ? absoluteHours : "0" + absoluteHours;
+
+  //Get remainder from hours and convert to minutes
+  var minutes = (hours - absoluteHours) * 60;
+  var absoluteMinutes = Math.floor(minutes);
+  var m = absoluteMinutes > 9 ? absoluteMinutes : "0" + absoluteMinutes;
+
+  //Get remainder from minutes and convert to seconds
+  var seconds = (minutes - absoluteMinutes) * 60;
+  var absoluteSeconds = Math.floor(seconds);
+  var s = absoluteSeconds > 9 ? absoluteSeconds : "0" + absoluteSeconds;
+
+  return h + ":" + m + ":" + s;
+}
+
 // Setting up the money object
 function setMoneyObject() {
   const keys = getTickers();
@@ -453,6 +485,9 @@ function generateBalance(wallets, last_calculation) {
   wallets.forEach(wallet => {
     balance["Time"] = Date.now();
     balance["Last_calculation"] = last_calculation;
+    balance["Next_mining_update"] = parseMillisecondsIntoReadableTime(
+      balance["Time"] - last_calculation
+    );
     balance["Bitcoin"] = 0;
     balance["Portfolio_value_in_usd"] = 0;
     balance["Portfolio_value_in_btc"] = 0;
@@ -468,6 +503,8 @@ function generateBalance(wallets, last_calculation) {
       parseFloat(wallet["notification_value"]["low"]) || 0;
     balance[wallet.ticker]["wallet"] = {};
     balance[wallet.ticker]["wallet"]["balance"] = 0;
+    balance[wallet.ticker]["explorer"] = {};
+    balance[wallet.ticker]["explorer"]["balance"] = 0;
     balance[wallet.ticker]["nanopool"] = {};
     balance[wallet.ticker]["nanopool"]["balance"] = 0;
     balance[wallet.ticker]["suprnova"] = {};
