@@ -126,9 +126,8 @@ async function showMeTheMoney() {
         }
       ]);
       if (
-        Date.now() - lastElements[0].secondToLast.Time >=
-        1000 * 60 * 60 * 24
-        // Date.now() - lastElements[0].secondToLast.Time < 1000 * 60 * 60 * 25
+        Date.now() - lastElements[0].secondToLast.Time >= 1000 * 60 * 60 * 24 &&
+        Date.now() - lastElements[0].secondToLast.Time < 1000 * 60 * 60 * 25
       ) {
         break;
       } else {
@@ -154,11 +153,19 @@ async function showMeTheMoney() {
         }
       });
       console.log(money);
-      // miningCollection.update(
-      //   { _id: 1 },
-      //   { $push: { mining_history: money } },
-      //   { upsert: true }
-      // );
+      miningCollection.update(
+        { _id: 1 },
+        { $push: { mining_history: money } },
+        { upsert: true }
+      );
+      const msg = [];
+      msg.push({
+        to: walletsWithOptions.email,
+        from: "getBalance@nos.com",
+        subject: "Mining Report | Daily",
+        text: money
+      });
+      await sendEmails(msg);
     }
   }
 }
