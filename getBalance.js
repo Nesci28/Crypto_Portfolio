@@ -86,7 +86,6 @@ async function main(step) {
     walletsWithOptions.sendgrid_apiKey.length > 0
   ) {
     await checkForEmail();
-    console.log(emailSent);
   }
 
   if (step == "db" || step == "start") {
@@ -109,7 +108,6 @@ async function main(step) {
 }
 
 setEmailObject();
-setMoneyObject();
 main("start");
 
 // Functions
@@ -128,8 +126,9 @@ async function showMeTheMoney() {
         }
       ]);
       if (
-        Date.now() - lastElements[0].secondToLast.Time >= 1000 * 60 * 60 * 24 &&
-        Date.now() - lastElements[0].secondToLast.Time < 1000 * 60 * 60 * 25
+        Date.now() - lastElements[0].secondToLast.Time >=
+        1000 * 60 * 60 * 24
+        // Date.now() - lastElements[0].secondToLast.Time < 1000 * 60 * 60 * 25
       ) {
         break;
       } else {
@@ -146,23 +145,45 @@ async function showMeTheMoney() {
         let currentBalance = lastElements[0].last[key].total_balance;
         let lastBalance = lastElements[0].secondToLast[key].total_balance;
         const SatsValue = lastElements[0].last[key].value_in_btc;
-        if (currentBalance - lastBalance !== 0) {
+        if (currentBalance - lastBalance > 0) {
+          money[key] = { [key]: 0, BTC: 0, USD: 0 };
           money[key][key] = currentBalance - lastBalance;
           money[key].BTC = (currentBalance - lastBalance) * SatsValue;
           const BTCValue = lastElements[0].last.Bitcoin;
           money[key].USD = money[key].BTC * BTCValue;
         }
       });
-      miningCollection.update(
-        { _id: 1 },
-        { $push: { mining_history: money } },
-        { upsert: true }
-      );
+      console.log(money);
+      // miningCollection.update(
+      //   { _id: 1 },
+      //   { $push: { mining_history: money } },
+      //   { upsert: true }
+      // );
     }
   }
 }
 
 async function insertInDB() {
+  let size = await collection.aggregate({
+    $project: { count: { $size: "$balance" } }
+  });
+  if (size > 0) {
+    let lastElement = await collection.aggregate([
+      {
+        $project: {
+          lastElement: { $arrayElemAt: ["$balance", -1] }
+        }
+      }
+    ]);
+    const keys = getTickers();
+    keys.forEach(ticker => {
+      const tickerLastElement = lastElement[0].lastElement[ticker];
+      const tickerCurrent = balance[ticker];
+      if (tickerLastElement.total_balance == tickerCurrent.total_balance) {
+        delete balance[ticker];
+      }
+    });
+  }
   await collection.update(
     { _id: 1 },
     { $push: { balance: balance } },
@@ -472,21 +493,13 @@ function parseMillisecondsIntoReadableTime(milliseconds) {
   return h + ":" + m + ":" + s;
 }
 
-// Setting up the money object
-function setMoneyObject() {
-  const keys = getTickers();
-  keys.forEach(key => {
-    money[key] = { [key]: 0, BTC: 0, USD: 0 };
-  });
-}
-
 // Setting up the balance object
 function generateBalance(wallets, last_calculation) {
   wallets.forEach(wallet => {
     balance["Time"] = Date.now();
     balance["Last_calculation"] = last_calculation;
     balance["Next_mining_update"] = parseMillisecondsIntoReadableTime(
-      balance["Time"] - last_calculation
+      1000 * 60 * 60 * 24 - (balance["Time"] - last_calculation)
     );
     balance["Bitcoin"] = 0;
     balance["Portfolio_value_in_usd"] = 0;
