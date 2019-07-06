@@ -25,6 +25,7 @@ address: Your wallet address [value or blank]
 manualBalance: If you want to add a balance manually [value]
 checkOnExplorer: Check the balance of the wallet on the explorer [true or false]
 nanopool: If you are mining on nanopool and want to include the amount currently on it [true or false]  
+ethermine: If you are mining on ethermine and want to include the amount currently on it [true or false]  
 suprnova:
 
 - apiKey: The api key of your suprnova account if you are mining and want to include the amount currently on it [api_key or blank]
@@ -45,6 +46,7 @@ notification_value:
       "manualBalance": 0,
       "checkOnExplorer": true,
       "nanopool": false,
+      "ethermine": false,
       "suprnova": {
         "apiKey": "972fd45d659a48b15453c673701b23ab3c9f2095b37d925d9cc3aba8a5cb7a06"
       },

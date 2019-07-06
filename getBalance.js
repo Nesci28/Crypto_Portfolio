@@ -163,7 +163,7 @@ async function showMeTheMoney() {
         to: walletsWithOptions.email,
         from: "getBalance@nos.com",
         subject: "Mining Report | Daily",
-        text: money
+        text: JSON.stringify(money)
       });
       await sendEmails(msg);
     }
@@ -329,6 +329,7 @@ async function getBalance(wallets) {
     const ticker = wallet.ticker;
     const address = wallet.address;
     const nanopool = wallet.nanopool;
+    const ethermine = wallet.ethermine;
     const suprnova = wallet.suprnova.apiKey;
     const checkOnExplorer = wallet.checkOnExplorer;
     const manualBalance = wallet.manualBalance;
@@ -356,6 +357,9 @@ async function getBalance(wallets) {
     }
     if (nanopool) {
       await getFromNanopool(ticker, address);
+    }
+    if (ethermine) {
+      await getFromEthermine(ticker, address);
     }
     if (suprnova !== undefined) {
       if (suprnova.length > 0) {
@@ -446,6 +450,29 @@ async function getFromNanopool(ticker, address, walletBalance = "") {
   } catch {}
 }
 
+async function getFromEthermine(ticker, address, walletBalance = "") {
+  try {
+    if (config[ticker].ethermine) {
+      let api = config[ticker].ethermine.api;
+      api = api.replace("WALLET", address);
+      const path = config[ticker].ethermine.path;
+
+      if (api && path) {
+        try {
+          walletBalance = await axios.get(api);
+        } catch {}
+        walletBalance = walletBalance.data;
+        walletBalance = getPath(path, walletBalance);
+        if (ticker == "ETH") {
+          walletBalance = (walletBalance / 1000000000000000000).toFixed(8);
+        }
+        walletBalance = parseFloat(walletBalance);
+        balance[ticker]["ethermine"]["balance"] = walletBalance;
+      }
+    }
+  } catch {}
+}
+
 async function getFromExplorer(
   ticker,
   api,
@@ -527,6 +554,8 @@ function generateBalance(wallets, last_calculation) {
     balance[wallet.ticker]["explorer"]["balance"] = 0;
     balance[wallet.ticker]["nanopool"] = {};
     balance[wallet.ticker]["nanopool"]["balance"] = 0;
+    balance[wallet.ticker]["ethermine"] = {};
+    balance[wallet.ticker]["ethermine"]["balance"] = 0;
     balance[wallet.ticker]["suprnova"] = {};
     balance[wallet.ticker]["suprnova"]["balance"] = 0;
   });

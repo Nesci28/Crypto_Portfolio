@@ -28,6 +28,10 @@
       "nanopool": {
         "api": "https://api.nanopool.org/v1/eth/balance/",
         "path": "data"
+      },
+      "ethermine": {
+        "api": "https://api.ethermine.org/miner/WALLET/dashboard/",
+        "path": "data.currentStatistics.unpaid"
       }
     },
     "XMR": {
