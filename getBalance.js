@@ -4,6 +4,7 @@ const puppeteer = require("puppeteer");
 const CoinGecko = require("coingecko-api");
 const sgMail = require("@sendgrid/mail");
 const monk = require("monk");
+const prettyjson = require("prettyjson");
 require("dotenv").config();
 
 const db = monk(
@@ -80,14 +81,13 @@ async function main(step) {
   await getBitcoinValue();
   await getBalance(wallets);
   calc();
-  console.log(balance);
+  // console.log(balance);
   if (
     walletsWithOptions.email.length > 0 &&
     walletsWithOptions.sendgrid_apiKey.length > 0
   ) {
     await checkForEmail();
   }
-
   if (step == "db" || step == "start") {
     await insertInDB();
     if (showTheMoney == true) {
@@ -95,6 +95,29 @@ async function main(step) {
       showTheMoney = false;
     }
   }
+  delete balance["Time"];
+  delete balance["Last_calculation"];
+  const tickers = getTickers();
+  for (let i = 0; i < tickers.length; i++) {
+    delete balance[tickers[i]]["notification_value"];
+    if (balance[tickers[i]]["wallet"]["balance"] == 0) {
+      delete balance[tickers[i]]["wallet"];
+    }
+    if (balance[tickers[i]]["explorer"]["balance"] == 0) {
+      delete balance[tickers[i]]["explorer"];
+    }
+    if (balance[tickers[i]]["nanopool"]["balance"] == 0) {
+      delete balance[tickers[i]]["nanopool"];
+    }
+    if (balance[tickers[i]]["ethermine"]["balance"] == 0) {
+      delete balance[tickers[i]]["ethermine"];
+    }
+    if (balance[tickers[i]]["suprnova"]["balance"] == 0) {
+      delete balance[tickers[i]]["suprnova"];
+    }
+  }
+  process.stdout.write("\u001b[2J\u001b[0;0H");
+  console.log(prettyjson.render(balance));
 
   setTimeout(async () => {
     if (counter == 60) {
@@ -152,7 +175,8 @@ async function showMeTheMoney() {
           money[key].USD = money[key].BTC * BTCValue;
         }
       });
-      console.log(money);
+      // console.log(money);
+      console.log(prettyjson.render(money));
       miningCollection.update(
         { _id: 1 },
         { $push: { mining_history: money } },
@@ -163,7 +187,8 @@ async function showMeTheMoney() {
         to: walletsWithOptions.email,
         from: "getBalance@nos.com",
         subject: "Mining Report | Daily",
-        text: JSON.stringify(money)
+        // text: JSON.stringify(money, null, 2)
+        text: prettyjson.render(money)
       });
       await sendEmails(msg);
     }
@@ -280,6 +305,7 @@ function calc() {
       section["wallet"]["balance"] +
       section["nanopool"]["balance"] +
       section["suprnova"]["balance"] +
+      section["ethermine"]["balance"] +
       section["explorer"]["balance"];
     section["total_balance"] = total;
     section["total_value_in_btc"] = total * section["value_in_btc"];
