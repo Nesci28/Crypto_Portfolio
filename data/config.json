@@ -59,6 +59,16 @@
       "path": "",
       "scrap": "http://explorer.sinovate.io/address/",
       "scrap_fields": "body > div:nth-child(3) > div > div > div.col-xs-12.col-md-10.col-md-offset-1 > div.panel.panel-default.panel-address-summary > table > tbody > tr > td:nth-child(3)"
+    },
+    "XZC": {
+      "id": "zcoin",
+      "api": "https://www.coinexplorer.net/api/v1/XZC/address/balance?address=",
+      "key": "",
+      "path": "result.<address>",
+      "2miners": {
+        "api": "https://xzc.2miners.com/api/accounts/",
+        "path": ["stats.balance", "stats.immature"]
+      }
     }
   }
 }

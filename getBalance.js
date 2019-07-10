@@ -5,6 +5,7 @@ const CoinGecko = require("coingecko-api");
 const sgMail = require("@sendgrid/mail");
 const monk = require("monk");
 const prettyjson = require("prettyjson");
+const sleep = require("sleep-promise");
 require("dotenv").config();
 
 const db = monk(
@@ -28,7 +29,7 @@ sgMail.setApiKey(walletsWithOptions.sendgrid_apiKey);
 // async function getID() {
 //   let data = await CoinGeckoClient.coins.list();
 //   data.data.forEach(el => {
-//     if (el.symbol == "sin") {
+//     if (el.symbol == "xzc") {
 //       console.log(el);
 //     }
 //   });
@@ -100,6 +101,10 @@ async function main(step) {
   const tickers = getTickers();
   for (let i = 0; i < tickers.length; i++) {
     delete balance[tickers[i]]["notification_value"];
+    if (tickers[i] == "BTC") {
+      delete balance[tickers[i]]["total_value_in_btc"];
+      delete balance[tickers[i]]["value_in_btc"];
+    }
     if (balance[tickers[i]]["wallet"]["balance"] == 0) {
       delete balance[tickers[i]]["wallet"];
     }
@@ -111,6 +116,9 @@ async function main(step) {
     }
     if (balance[tickers[i]]["ethermine"]["balance"] == 0) {
       delete balance[tickers[i]]["ethermine"];
+    }
+    if (balance[tickers[i]]["2miners"]["balance"] == 0) {
+      delete balance[tickers[i]]["2miners"];
     }
     if (balance[tickers[i]]["suprnova"]["balance"] == 0) {
       delete balance[tickers[i]]["suprnova"];
@@ -182,13 +190,23 @@ async function showMeTheMoney() {
         { $push: { mining_history: money } },
         { upsert: true }
       );
+      let totalBTC = 0;
+      let totalUSD = 0;
+      keys.forEach(ticker => {
+        if (money[ticker]) {
+          totalBTC = totalBTC + money[ticker]["BTC"];
+          totalUSD = totalUSD + money[ticker]["USD"];
+        }
+      });
+      money["Total"] = {};
+      money["Total"]["BTC Value"] = totalBTC;
+      money["Total"]["USD Value"] = totalUSD;
       const msg = [];
       msg.push({
         to: walletsWithOptions.email,
         from: "getBalance@nos.com",
         subject: "Mining Report | Daily",
-        // text: JSON.stringify(money, null, 2)
-        text: prettyjson.render(money)
+        text: JSON.stringify(money, null, 2)
       });
       await sendEmails(msg);
     }
@@ -356,6 +374,7 @@ async function getBalance(wallets) {
     const address = wallet.address;
     const nanopool = wallet.nanopool;
     const ethermine = wallet.ethermine;
+    const twoMiners = wallet["2miners"];
     const suprnova = wallet.suprnova.apiKey;
     const checkOnExplorer = wallet.checkOnExplorer;
     const manualBalance = wallet.manualBalance;
@@ -386,6 +405,9 @@ async function getBalance(wallets) {
     }
     if (ethermine) {
       await getFromEthermine(ticker, address);
+    }
+    if (twoMiners) {
+      await getFromTwoMiners(ticker, address);
     }
     if (suprnova !== undefined) {
       if (suprnova.length > 0) {
@@ -499,6 +521,22 @@ async function getFromEthermine(ticker, address, walletBalance = "") {
   } catch {}
 }
 
+async function getFromTwoMiners(ticker, address, walletBalance = "") {
+  try {
+    const api = config[ticker]["2miners"].api;
+    const path = config[ticker]["2miners"].path;
+    walletBalance = await axios.get(api + address);
+    const path1 = path[0];
+    const path2 = path[1];
+    walletBalance = walletBalance.data;
+    let total = getPath(path1, walletBalance);
+    total = total + getPath(path2, walletBalance);
+    walletBalance = total / 100000000;
+    walletBalance = parseFloat(walletBalance);
+    balance[ticker]["2miners"]["balance"] = walletBalance;
+  } catch {}
+}
+
 async function getFromExplorer(
   ticker,
   api,
@@ -507,17 +545,30 @@ async function getFromExplorer(
   path,
   walletBalance = ""
 ) {
+  if (path.includes("<address>")) {
+    path = path.replace("<address>", address);
+  }
   if (api.length > 0 && apiKey.length == 0) {
     try {
-      walletBalance = await axios.get(api + address);
+      if (api.includes("<address>")) {
+        api = api.replace("<address>", address);
+        walletBalance = await axios.get(api);
+      } else {
+        walletBalance = await axios.get(api + address);
+      }
     } catch {}
   } else if (api.length > 0 && apiKey.length > 0) {
     try {
-      walletBalance = await axios.get(api + address, {
-        params: {
-          apiKey: apiKey[1]
-        }
-      });
+      if (api.includes("<address>")) {
+        api = api.replace("<address>", address);
+        walletBalance = await axios.get(api);
+      } else {
+        walletBalance = await axios.get(api + address, {
+          params: {
+            apiKey: apiKey[1]
+          }
+        });
+      }
     } catch {}
   }
   if (walletBalance) {
@@ -582,6 +633,8 @@ function generateBalance(wallets, last_calculation) {
     balance[wallet.ticker]["nanopool"]["balance"] = 0;
     balance[wallet.ticker]["ethermine"] = {};
     balance[wallet.ticker]["ethermine"]["balance"] = 0;
+    balance[wallet.ticker]["2miners"] = {};
+    balance[wallet.ticker]["2miners"]["balance"] = 0;
     balance[wallet.ticker]["suprnova"] = {};
     balance[wallet.ticker]["suprnova"]["balance"] = 0;
   });

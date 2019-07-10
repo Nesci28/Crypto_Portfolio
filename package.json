@@ -10,7 +10,8 @@
     "dotenv": "^8.0.0",
     "monk": "^7.0.0",
     "prettyjson": "^1.2.1",
-    "puppeteer": "^1.17.0"
+    "puppeteer": "^1.17.0",
+    "sleep-promise": "^8.0.1"
   },
   "devDependencies": {},
   "scripts": {
