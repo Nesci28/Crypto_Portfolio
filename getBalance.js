@@ -174,6 +174,9 @@ async function showMeTheMoney() {
       keys.forEach(key => {
         let currentBalance = lastElements[0].last[key].total_balance;
         let lastBalance = lastElements[0].secondToLast[key].total_balance;
+        if (lastBalance == undefined) {
+          lastBalance = 0;
+        }
         const SatsValue = lastElements[0].last[key].value_in_btc;
         if (currentBalance - lastBalance > 0) {
           money[key] = { [key]: 0, BTC: 0, USD: 0 };
