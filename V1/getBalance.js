@@ -5,7 +5,6 @@ const CoinGecko = require("coingecko-api");
 const sgMail = require("@sendgrid/mail");
 const monk = require("monk");
 const prettyjson = require("prettyjson");
-const sleep = require("sleep-promise");
 require("dotenv").config();
 
 const db = monk(
@@ -80,7 +79,7 @@ async function main(step) {
   }
   generateBalance(wallets, lastCalculation);
   await getBitcoinValue();
-  await getBalance(wallets);
+  const manuelBalance = await getBalance(wallets);
   calc();
   // console.log(balance);
   if (
@@ -92,7 +91,7 @@ async function main(step) {
   if (step == "db" || step == "start") {
     await insertInDB();
     if (showTheMoney == true) {
-      await showMeTheMoney();
+      await showMeTheMoney(manuelBalance);
       showTheMoney = false;
     }
   }
@@ -175,7 +174,7 @@ async function showMeTheMoney() {
         let currentBalance = lastElements[0].last[key].total_balance;
         let lastBalance = lastElements[0].secondToLast[key].total_balance;
         if (lastBalance == undefined) {
-          lastBalance = 0;
+          lastBalance = wall;
         }
         const SatsValue = lastElements[0].last[key].value_in_btc;
         if (currentBalance - lastBalance > 0) {
@@ -327,6 +326,7 @@ function calc() {
       section["nanopool"]["balance"] +
       section["suprnova"]["balance"] +
       section["ethermine"]["balance"] +
+      section["2miners"]["balance"] +
       section["explorer"]["balance"];
     section["total_balance"] = total;
     section["total_value_in_btc"] = total * section["value_in_btc"];

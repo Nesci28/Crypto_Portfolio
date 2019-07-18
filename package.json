@@ -8,6 +8,7 @@
     "axios": "^0.19.0",
     "coingecko-api": "^1.0.5",
     "dotenv": "^8.0.0",
+    "influx": "^5.4.0",
     "monk": "^7.0.0",
     "prettyjson": "^1.2.1",
     "puppeteer": "^1.17.0",

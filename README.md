@@ -7,10 +7,22 @@ cd Crypto_Portfolio
 npm install
 ```
 
-## Run
+## Run getBalance
 
 ```bash
-node getBalance.js <Your_Wallet_File.json>
+node app.js <Your_Wallet_File.json>
+```
+
+## Run getID
+
+```bash
+node getID.js <3_chars_ticker>
+```
+
+## Run getBalance in dev mode
+
+```bash
+node app.js <Your_Wallet_File.json> dev
 ```
 
 ## How To Config
@@ -61,21 +73,16 @@ notification_value:
 
 ## To do :
 
-- [ ] Refactor the code
-
-- [ ] Save all the values in influxDB and add graphana charts
-
-- Portfolio value over time
-  - in BTC (lines)
-  - in USD (lines)
-- Coins over time
-
+- [x] Refactor the code
+- [x] Save all the values in influxDB and add graphana charts
+  - Portfolio value over time
+    - in BTC (lines)
+    - in USD (lines)
+  - Coins over time
   - total balance (lines)
   - mined by period (bars)
   - value in BTC (lines)
   - value in USD (lines)
-
 - [ ] Connect to exchanges and buy/sell on threshold
-
 - [ ] Add machine learning ???
 - Automatically buy/sell when time comes
